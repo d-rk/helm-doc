@@ -13,5 +13,8 @@ version=0.1.6
 #variant=Linux_i386
 #variant=Darwin_x86_64
 #variant=Darwin_i386
-helm plugin install https://github.com/random-dwi/helm-doc/releases/download/${version}/helm-doc_${version}_${variant}.zip
+helm plugin install https://github.com/random-dwi/helm-doc/releases/download/${version}/helm-doc_${version}_${variant}.tar.gz
+
+# workaround to fix file permissions
+find `helm home` -name helm-doc | xargs -L1 chmod +x
 ```

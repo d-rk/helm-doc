@@ -20,7 +20,7 @@ archives:
     files:
       - LICENSE.md
       - plugin.yaml
-    format: zip
+    format: tar.gz
 
 checksum:
   name_template: 'checksums.txt'
