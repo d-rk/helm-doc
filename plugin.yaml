@@ -5,4 +5,4 @@ description: |-
   This plugin allows generating doc containing possible configurations of helm charts.
 ignoreFlags: false
 useTunnel: false
-command: "$HELM_PLUGIN_DIR/helm-doc"
+command: "$HELM_PLUGIN_DIR/helm-doc.sh"
