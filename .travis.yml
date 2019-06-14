@@ -1,0 +1,16 @@
+language: go
+go:
+- 1.11.x
+env:
+  global:
+  - GO111MODULE=on
+    # travis encrypt GITHUB_TOKEN=xyz --add env.global --com
+  - secure: cUKs6l3QLBMgSUiUwjjS/K37wUXSGxZPy07bU8D9cuDFsoelTNsqZAAKgXULRxU+zG6Li6hS83FlHuhd2UgJbyk0mMYQUGkc58tCtrEuKtKMoQnkcdHdBkgK5y8RhKHo+W4Kv07jl+6tcZYjspDcL1Qq0RG8u+PhKc/LvGnSPmF9qlpnM+xIrH/TDUS4eD+o0tqopwVAd13S9wlLxVKtiO18N/9KT+FMa7+mWndBJsUxoF0YXPx94fpSfnSoErZe3tcLSy/dlmyZ6UDjhe/98pJoIk4smQP/JxMNu8Tj2SGer1d3vK3H5Lbgm3D7SPawj4UaLkoheNS9EmwQku8nA/H/CN4U+pbnBXamr7s7DnyqUkcddIDEmT32F2M1pxhoRsRUGkhHVAMYnY9YOwXA16PFWrsx9npOPt+b7QkfaR3QYv3XlrIEGjFKdEnSSNZRD1beBxTuwsBD0LK+i3qQ/sXlHQuD13KQO2+D9LbNWSlONMvwBa6pgMurXovWc/AuGb+lCC6UX0O4+Ngoq/tOXE5wyEjmMquFYgMzyu0BAFV+Nf3oeyu98OKPtRW1KrVs7yT6tshy6gp/+82CddX1yKxKi2m5QQmSiMi9iluGbYN6f3P1gxCEFbTaOwobjEEZrdFnFIjeySWptAKgqfejWGl9M9dmKIRQMWrNBPHsddE=
+deploy:
+- provider: script
+  skip_cleanup: true
+  script: curl -sL https://git.io/goreleaser | bash
+  on:
+    branch: master
+    condition: "$TRAVIS_OS_NAME = linux"
+    tags: true

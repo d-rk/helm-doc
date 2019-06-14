@@ -8,5 +8,19 @@
 # Test binary, build with `go test -c`
 *.test
 
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+
+### Visual Studio Code
+.vscode
+
+### Binary
+docs
+dist
+helm-doc
+
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
