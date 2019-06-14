@@ -8,7 +8,7 @@ a helm plugin for documentation generation
 choose the variant needed and install with the following:
 
 ```bash
-version=0.1.2
+version=0.1.3
 #variant=Linux_x86_64
 #variant=Linux_i386
 #variant=Darwin_x86_64
