@@ -21,6 +21,7 @@ archives:
       - LICENSE.md
       - plugin.yaml
       - helm-doc.sh
+    format: zip
 
 checksum:
   name_template: 'checksums.txt'
