@@ -39,7 +39,8 @@ clean:
 .PHONY: release
 release:
 	eval "sed -i 's/version:.*/version: \"$$version\"/g' plugin.yaml"
-	git add "plugin.yaml"
+	eval "sed -i 's/version=.*/version=$$version/g' README.md"
+	git add plugin.yaml README.md
 	git commit -m "releases $(version)"
 	git tag -a $(version) -m "release $(version)"
 	git push origin
