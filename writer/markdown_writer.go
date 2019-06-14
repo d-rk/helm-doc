@@ -36,12 +36,16 @@ func (g MarkdownWriter) WriteMetaData(metaData *chart.Metadata, layer int) {
 	}
 
 	g.fprintf(" %s\n\n", metaData.Name)
-	g.fprintf("- **Version:** %s\n\n", metaData.Version)
+	g.fprintf("- **Version:** %s\n", metaData.Version)
 	g.fprintf("- **Description:** %s\n", metaData.Description)
 	g.fprintf("\n")
 }
 
 func (g MarkdownWriter) WriteDocs(docs map[string]*generator.ConfigDoc) {
+
+	if len(docs) == 0 {
+		return
+	}
 
 	g.fprintf("|%s|%s|%s|%s|\n", "KEY", "DESCRIPTION", "DEFAULT", "EXAMPLE")
 	g.fprintf("|---|---|---|---|\n")
@@ -58,6 +62,7 @@ func (g MarkdownWriter) WriteDocs(docs map[string]*generator.ConfigDoc) {
 		row := []string{"`" + key + "`", sanitize(configDoc.Description), toMarkdown(configDoc.DefaultValue), toMarkdown(configDoc.ExampleValue)}
 		g.fprintf("|%s|\n", strings.Join(row, "|"))
 	}
+	g.fprintf("\n")
 }
 
 func toMarkdown(object interface{}) string {

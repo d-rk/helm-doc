@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/ghodss/yaml"
 	"github.com/golang/protobuf/ptypes/any"
+	"github.com/random-dwi/helm-doc/helm"
 	"github.com/random-dwi/helm-doc/output"
 	"k8s.io/helm/pkg/proto/hapi/chart"
 	"regexp"
@@ -33,54 +34,85 @@ type ConfigDoc struct {
 	ExampleValue interface{}
 }
 
-func GenerateDocs(chart *chart.Chart, ignoredPrefixes []string, flags CommandFlags) (map[string]*ConfigDoc, error) {
+func GenerateDocs(c *chart.Chart, ignoredPrefixes []string, parentCharts map[*chart.Chart]*chart.Chart, flags CommandFlags) (map[string]*ConfigDoc, error) {
 
-	values, err := parseYaml([]byte(chart.Values.Raw))
+	var allValues = make(map[string]map[string]interface{})
+	var valueSource []string
 
-	if err != nil {
-		return nil, fmt.Errorf("unable to read values for %s:%s: %v", chart.Metadata.Name, chart.Metadata.Version, err)
+	var currentChart = c
+	var currentPrefix = ""
+
+	for currentChart != nil {
+		valueSource = append(valueSource, currentChart.Metadata.Name)
+
+		var rawValues []byte
+		if currentChart.Values == nil {
+			output.Debugf("chart has no values.yaml")
+			rawValues = []byte("")
+		} else {
+			rawValues = []byte(currentChart.Values.Raw)
+		}
+
+		values, err := parseYaml(rawValues)
+
+		if err != nil {
+			return nil, fmt.Errorf("unable to read values for %s:%s: %v", currentChart.Metadata.Name, currentChart.Metadata.Version, err)
+		}
+
+		if currentPrefix != "" {
+			val := findValueForKeyAndGlobal(currentPrefix, values, values["global"])
+			values, _ = val.(map[string]interface{})
+			currentPrefix = currentChart.Metadata.Name + "." + currentPrefix
+		} else {
+			currentPrefix = currentChart.Metadata.Name
+		}
+
+		allValues[currentChart.Metadata.Name] = values
+		currentChart = parentCharts[currentChart]
 	}
 
-	definitions, err := findAndParseYaml(chart.Files, "definitions.yaml")
+	definitions, err := findAndParseYaml(c.Files, "definitions.yaml")
 
 	if err != nil {
-		return nil, fmt.Errorf("unable to read definitions for %s:%s: %v", chart.Metadata.Name, chart.Metadata.Version, err)
+		return nil, fmt.Errorf("unable to read definitions for %s:%s: %v", c.Metadata.Name, c.Metadata.Version, err)
 	}
 
-	examples, err := findAndParseYaml(chart.Files, "examples.yaml")
+	examples, err := findAndParseYaml(c.Files, "examples.yaml")
 
 	if err != nil {
 		if flags.VerifyExamples {
-			return nil, fmt.Errorf("unable to read examples for %s:%s: %v", chart.Metadata.Name, chart.Metadata.Version, err)
+			return nil, fmt.Errorf("unable to read examples for %s:%s: %v", c.Metadata.Name, c.Metadata.Version, err)
 		} else {
-			output.Warnf("unable to read examples for %s:%s: %v", chart.Metadata.Name, chart.Metadata.Version, err)
+			output.Warnf("unable to read examples for %s:%s: %v", c.Metadata.Name, c.Metadata.Version, err)
 		}
 	}
 
-	return generate(definitions, values, examples, ignoredPrefixes, flags), nil
+	return generate(definitions, allValues, valueSource, examples, ignoredPrefixes, flags), nil
 }
 
-func generate(definitions map[string]interface{}, values map[string]interface{}, examples map[string]interface{}, ignoredPrefixes []string, flags CommandFlags) map[string]*ConfigDoc {
+func generate(definitions map[string]interface{}, allValues map[string]map[string]interface{}, valueSource []string, examples map[string]interface{}, ignoredPrefixes []string, flags CommandFlags) map[string]*ConfigDoc {
 
 	docs := convertToConfigDocs("", definitions)
 
 	if len(ignoredPrefixes) > 0 {
-		for key := range values {
-			if containsString(ignoredPrefixes, key) {
-				delete(values, key)
+		for _, source := range valueSource {
+			for key := range allValues[source] {
+				if containsString(ignoredPrefixes, key) {
+					delete(allValues[source], key)
+				}
 			}
 		}
 	}
 
 	if flags.VerifyValues {
-		missingKeys := validateDefaultValues("", definitions, values)
+		missingKeys := validateDefaultValues("", definitions, allValues[valueSource[0]])
 		if len(missingKeys) > 0 {
 			var prefix = "\n\t"
 			output.Failf("undocumented values detected: %s%s", prefix, strings.Join(missingKeys, prefix))
 		}
 	}
 
-	docs = insertDefaultValues(docs, values)
+	docs = insertDefaultValues(docs, allValues, valueSource)
 
 	if examples != nil {
 		docs = insertExampleValues(docs, examples, flags)
@@ -184,13 +216,32 @@ func validateDefaultValues(parentKey string, definitions map[string]interface{},
 	return missingKeys
 }
 
-func insertDefaultValues(docs map[string]*ConfigDoc, values map[string]interface{}) map[string]*ConfigDoc {
+func insertDefaultValues(docs map[string]*ConfigDoc, allValues map[string]map[string]interface{}, valueSource []string) map[string]*ConfigDoc {
 
 	for globalKey, configDoc := range docs {
-		configDoc.DefaultValue = findValueForKey(globalKey, values, false)
+		var defaultValue interface{} = nil
+		for _, source := range valueSource {
+			defaultValue = mergeValues(findValueForKey(globalKey, allValues[source], false), defaultValue)
+		}
+		configDoc.DefaultValue = defaultValue
 	}
 
 	return docs
+}
+
+func mergeValues(defaultParent interface{}, defaultChild interface{}) interface{} {
+	parentMap, parentIsMap := defaultParent.(map[string]interface{})
+	childMap, childIsMap := defaultChild.(map[string]interface{})
+	if !parentIsMap || !childIsMap {
+		// parent overwrites child
+		if defaultParent != nil {
+			return defaultParent
+		} else {
+			return defaultChild
+		}
+	} else {
+		return helm.MergeValues(childMap, parentMap)
+	}
 }
 
 func insertExampleValues(docs map[string]*ConfigDoc, examples map[string]interface{}, flags CommandFlags) map[string]*ConfigDoc {
@@ -206,7 +257,7 @@ func insertExampleValues(docs map[string]*ConfigDoc, examples map[string]interfa
 
 	if missingExamples != nil {
 		var prefix = "\n\t"
-		output.Failf("when --force-examples is true an example needs to be provided for every config without default: %s%s", prefix, strings.Join(missingExamples, prefix))
+		output.Failf("when --verify-examples is true an example needs to be provided for every config without default: %s%s", prefix, strings.Join(missingExamples, prefix))
 	}
 
 	return docs
@@ -255,6 +306,36 @@ func findDefinitionForKeyOrParentKey(globalKey string, definitions map[string]in
 	}
 
 	return false
+}
+
+func findValueForKeyAndGlobal(globalKey string, values map[string]interface{}, global interface{}) interface{} {
+
+	keys := strings.Split(globalKey, ".")
+
+	for i := range keys {
+		leftMostKeys := keys[:len(keys)-i]
+		joinedKey := strings.Join(leftMostKeys, ".")
+
+		if subValues, exists := values[joinedKey]; exists {
+			subKey := strings.TrimPrefix(strings.TrimPrefix(globalKey, joinedKey), ".")
+
+			newMap, isMap := subValues.(map[string]interface{})
+			if isMap {
+				if subKey == "" {
+					newMap["global"] = global
+					return newMap
+				} else {
+					return findValueForKeyAndGlobal(subKey, newMap, global)
+				}
+			} else {
+				globalMap := make(map[string]interface{})
+				globalMap["global"] = global
+				return globalMap
+			}
+		}
+	}
+
+	return nil
 }
 
 // find value for a given key or nil if it does not exist

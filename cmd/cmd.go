@@ -9,6 +9,7 @@ import (
 	"github.com/random-dwi/helm-doc/writer"
 	"github.com/spf13/cobra"
 	"k8s.io/helm/pkg/chartutil"
+	"k8s.io/helm/pkg/proto/hapi/chart"
 	"log"
 	"os"
 )
@@ -59,7 +60,7 @@ func init() {
 
 func run(cmd *cobra.Command, args []string) error {
 	if len(args) < 1 {
-		return errors.New("chart is required")
+		return errors.New("c is required")
 	}
 
 	if flags.Verbose {
@@ -68,7 +69,7 @@ func run(cmd *cobra.Command, args []string) error {
 
 	output.Debugf("helm home: %s", os.Getenv("HELM_HOME"))
 
-	output.Debugf("Original chart version: %q", flags.Version)
+	output.Debugf("Original c version: %q", flags.Version)
 	if flags.Version == "" && flags.Devel {
 		output.Debugf("setting version to >0.0.0-0")
 		flags.Version = ">0.0.0-0"
@@ -90,37 +91,42 @@ func run(cmd *cobra.Command, args []string) error {
 
 	var gen writer.DocumentationWriter = writer.NewMarkdownWriter(os.Stdout)
 
+	parentCharts := make(map[*chart.Chart]*chart.Chart)
+	writeChartDocs(c, 1, gen, parentCharts, nil)
+
+	return nil
+}
+
+func writeChartDocs(chart *chart.Chart, layer int, gen writer.DocumentationWriter, parentCharts map[*chart.Chart]*chart.Chart, parent *chart.Chart) {
+
 	var dependencyNames []string
 
-	for _, dependency := range c.Dependencies {
+	for _, dependency := range chart.Dependencies {
 		dependencyNames = append(dependencyNames, dependency.Metadata.Name)
 	}
 
-	output.Debugf("generating docs for %s:%s", c.Metadata.Name, c.Metadata.Version)
-	docs, err := generator.GenerateDocs(c, dependencyNames, flags)
+	parentCharts[chart] = parent
 
-	gen.WriteMetaData(c.Metadata, 1)
-	gen.WriteDocs(docs)
+	output.Debugf("generating docs for %s:%s", chart.Metadata.Name, chart.Metadata.Version)
+	docs, err := generator.GenerateDocs(chart, dependencyNames, parentCharts, flags)
 
-	if len(c.Dependencies) > 0 {
-		gen.WriteChapter("Dependencies", 2)
-	}
-
-	for _, dependency := range c.Dependencies {
-		output.Debugf("generating docs for %s:%s", dependency.Metadata.Name, dependency.Metadata.Version)
-		docs, err := generator.GenerateDocs(dependency, nil, flags)
-
-		if err != nil {
-			if flags.VerifyDependencies {
-				output.Failf("%v", err)
-			} else {
-				output.Warnf("%v", err)
-			}
+	if err != nil {
+		if parent == nil || flags.VerifyDependencies {
+			output.Failf("%v", err)
 		} else {
-			gen.WriteMetaData(dependency.Metadata, 3)
-			gen.WriteDocs(docs)
+			output.Warnf("%v", err)
 		}
 	}
 
-	return nil
+	gen.WriteMetaData(chart.Metadata, layer)
+	gen.WriteDocs(docs)
+
+	if len(chart.Dependencies) > 0 {
+		layer++
+		gen.WriteChapter("Dependencies", layer)
+		layer++
+		for _, dependency := range chart.Dependencies {
+			writeChartDocs(dependency, layer, gen, parentCharts, chart)
+		}
+	}
 }

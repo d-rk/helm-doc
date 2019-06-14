@@ -70,6 +70,31 @@ func Test_findValueForKey(t *testing.T) {
 	}
 }
 
+func Test_mergeValues(t *testing.T) {
+	type args struct {
+		defaultParent interface{}
+		defaultChild  interface{}
+	}
+	tests := []struct {
+		name string
+		args args
+		want interface{}
+	}{
+		{name: "test_parent_nil", args: args{defaultParent: nil, defaultChild: parseJson(`{"global": "child"}`)}, want: parseJson(`{"global": "child"}`)},
+		{name: "test_string_merge", args: args{defaultParent: parseJson(`{"global": "parent"}`), defaultChild: parseJson(`{"global": "child"}`)}, want: parseJson(`{"global": "parent"}`)},
+		{name: "test_string_overwrite", args: args{defaultParent: `"global"`, defaultChild: parseJson(`{"global": "child"}`)}, want: `"global"`},
+		{name: "test_map_overwrite", args: args{defaultParent: parseJson(`{"global": "parent"}`), defaultChild: `"somestring"`}, want: parseJson(`{"global": "parent"}`)},
+		{name: "test_map_merge", args: args{defaultParent: parseJson(`{"global": {"hello": "parent"}}`), defaultChild: parseJson(`{"global": {"hello": "child", "other": "value"}}`)}, want: parseJson(`{"global": {"hello": "parent", "other": "value"}}`)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := mergeValues(tt.args.defaultParent, tt.args.defaultChild); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("mergeValues() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func parseJson(value string) map[string]interface{} {
 	valueMap := map[string]interface{}{}
 
