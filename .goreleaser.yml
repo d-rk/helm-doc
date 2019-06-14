@@ -20,7 +20,6 @@ archives:
     files:
       - LICENSE.md
       - plugin.yaml
-      - helm-doc.sh
     format: zip
 
 checksum:

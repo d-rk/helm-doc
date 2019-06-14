@@ -13,5 +13,5 @@ version=0.1.5
 #variant=Linux_i386
 #variant=Darwin_x86_64
 #variant=Darwin_i386
-helm plugin install https://github.com/random-dwi/helm-doc/releases/download/${version}/helm-doc_${version}_${variant}.tar.gz
+helm plugin install https://github.com/random-dwi/helm-doc/releases/download/${version}/helm-doc_${version}_${variant}.zip
 ```
