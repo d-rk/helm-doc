@@ -18,3 +18,13 @@ helm plugin install https://github.com/random-dwi/helm-doc/releases/download/${v
 # workaround to fix file permissions
 find `helm home` -name helm-doc | xargs -L1 chmod +x
 ```
+
+## usage
+
+```sh
+# show help
+helm doc -h
+
+# generate doc for a chart
+helm doc [chart]
+```
