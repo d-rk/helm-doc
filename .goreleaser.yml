@@ -20,6 +20,7 @@ archives:
     files:
       - LICENSE.md
       - plugin.yaml
+      - helm-docs.sh
 
 checksum:
   name_template: 'checksums.txt'
