@@ -1,5 +1,5 @@
 name: "doc"
-version: "0.1.7"
+version: "0.2.0"
 usage: "generate doc for helm chart"
 description: |-
   This plugin allows generating doc containing possible configurations of helm charts.
