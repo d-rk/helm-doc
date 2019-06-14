@@ -177,7 +177,7 @@ func validateDefaultValues(parentKey string, definitions map[string]interface{},
 		}
 
 		valMap, isMap := value.(map[string]interface{})
-		if isMap {
+		if isMap && len(valMap) > 0 {
 			missingKeys = append(missingKeys, validateDefaultValues(globalKey, definitions, valMap)...)
 			continue
 		}
